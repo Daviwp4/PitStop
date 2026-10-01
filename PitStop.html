@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoGestão - MVP</title>
+<style>
+:root{--primary:#2563eb;--primary-dark:#1d4ed8;--success:#16a34a;--warning:#d97706;--danger:#dc2626;--dark:#111827;--gray:#6b7280;--light:#f3f4f6;--white:#fff;--border:#e5e7eb}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;background:#f8fafc;color:var(--dark)}
+.sidebar{position:fixed;width:250px;height:100vh;background:#111827;color:#fff;padding:24px 16px;left:0;top:0;z-index:100}
+.logo{font-size:22px;font-weight:bold;margin-bottom:35px;padding-left:10px}.logo span{color:#60a5fa}
+.menu{list-style:none}.menu li{margin-bottom:6px}.menu button{width:100%;padding:13px 14px;background:transparent;border:0;color:#d1d5db;text-align:left;border-radius:8px;cursor:pointer;font-size:14px}.menu button:hover,.menu button.active{background:#1f2937;color:#fff}
+.main{margin-left:250px;min-height:100vh}.topbar{height:70px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 30px}.topbar h1{font-size:20px}.user{font-size:14px;color:var(--gray)}
+.content{padding:30px}.section{display:none}.section.active{display:block}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:30px}.card,.panel{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 2px 5px rgba(0,0,0,.03)}.card{padding:20px}.card-label{color:var(--gray);font-size:13px;margin-bottom:10px}.card-number{font-size:30px;font-weight:bold}
+.panel{padding:25px;margin-bottom:25px}.panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}.panel-header h2{font-size:18px}
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}.form-group{display:flex;flex-direction:column;gap:7px}.form-group.full{grid-column:1/-1}label{font-size:13px;font-weight:bold}
+input,select,textarea{width:100%;border:1px solid #d1d5db;border-radius:7px;padding:11px 12px;font-size:14px;outline:none}input:focus,select:focus,textarea:focus{border-color:var(--primary)}textarea{resize:vertical;min-height:90px}
+.btn{border:0;padding:11px 17px;border-radius:7px;cursor:pointer;font-weight:bold;font-size:13px;transition:.2s}.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-dark)}.btn-success{background:var(--success);color:#fff}.btn-warning{background:var(--warning);color:#fff}.btn-danger{background:var(--danger);color:#fff}.btn-secondary{background:#e5e7eb;color:#374151}
+.table-wrapper{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{padding:13px 10px;text-align:left;border-bottom:1px solid var(--border);font-size:13px}th{color:var(--gray);font-size:12px;text-transform:uppercase}
+.status{display:inline-block;padding:5px 9px;border-radius:20px;font-size:11px;font-weight:bold}.status-waiting{background:#fef3c7;color:#92400e}.status-analysis{background:#dbeafe;color:#1e40af}.status-service{background:#ede9fe;color:#5b21b6}.status-ready{background:#dcfce7;color:#166534}.status-delivered{background:#e5e7eb;color:#374151}
+.checklist{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.check-item{border:1px solid var(--border);padding:12px;border-radius:7px;display:flex;align-items:center;gap:10px}.check-item input{width:auto}
+.photo-upload{border:2px dashed #cbd5e1;padding:25px;text-align:center;border-radius:10px;cursor:pointer;background:#f8fafc;display:block}.photo-upload:hover{border-color:var(--primary)}.photo-preview{display:flex;flex-wrap:wrap;gap:10px;margin-top:15px}.photo-item{width:100px;height:80px;border-radius:7px;overflow:hidden;border:1px solid var(--border)}.photo-item img{width:100%;height:100%;object-fit:cover}
+.os-box{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:20px}.os-header{display:flex;justify-content:space-between;margin-bottom:20px}.os-number{font-size:24px;font-weight:bold}.actions{display:flex;gap:7px}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:999;padding:20px}.modal.show{display:flex}.modal-content{width:100%;max-width:700px;max-height:90vh;overflow-y:auto;background:#fff;border-radius:12px;padding:25px}.modal-header{display:flex;justify-content:space-between;margin-bottom:20px}.close{border:0;background:none;font-size:25px;cursor:pointer}.empty{text-align:center;color:var(--gray);padding:30px}
+@media(max-width:900px){.sidebar{width:70px;padding:20px 8px}.logo{font-size:0;text-align:center}.logo:after{content:"AG";font-size:18px;color:#fff}.menu button{text-align:center;font-size:0}.menu button::first-letter{font-size:18px}.main{margin-left:70px}.cards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.content{padding:15px}.topbar{padding:0 15px}.cards,.form-grid,.checklist{grid-template-columns:1fr}.form-group.full{grid-column:auto}}
+@media print{.sidebar,.topbar,.modal-header,.modal-content>button{display:none!important}.modal{display:block;position:static;background:none;padding:0}.modal-content{max-width:none;box-shadow:none}}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+<div class="logo">Auto<span>Gestão</span></div>
+<ul class="menu">
+<li><button class="active" onclick="showSection('dashboard',this)">🏠 Dashboard</button></li>
+<li><button onclick="showSection('clientes',this)">👤 Clientes</button></li>
+<li><button onclick="showSection('entrada',this)">🚗 Entrada</button></li>
+<li><button onclick="showSection('fila',this)">🕐 Fila de espera</button></li>
+<li><button onclick="showSection('servicos',this)">🔧 Serviços</button></li>
+<li><button onclick="showSection('ordens',this)">📄 Ordens de Serviço</button></li>
+</ul>
+</aside>
+
+<main class="main">
+<header class="topbar"><h1 id="pageTitle">Dashboard</h1><div class="user">Administrador</div></header>
+
+<div class="content">
+
+<section id="dashboard" class="section active">
+<div class="cards">
+<div class="card"><div class="card-label">Clientes cadastrados</div><div class="card-number" id="totalClientes">0</div></div>
+<div class="card"><div class="card-label">Veículos na fila</div><div class="card-number" id="totalFila">0</div></div>
+<div class="card"><div class="card-label">Em atendimento</div><div class="card-number" id="totalAtendimento">0</div></div>
+<div class="card"><div class="card-label">OS abertas</div><div class="card-number" id="totalOS">0</div></div>
+</div>
+
+<div class="panel">
+<div class="panel-header"><h2>Veículos em atendimento</h2></div>
+<div class="table-wrapper">
+<table><thead><tr><th>OS</th><th>Cliente</th><th>Veículo</th><th>Serviço</th><th>Status</th></tr></thead>
+<tbody id="dashboardTable"></tbody></table>
+</div>
+</div>
+</section>
+
+<section id="clientes" class="section">
+<div class="panel">
+<div class="panel-header"><h2>Cadastro de cliente</h2></div>
+<form id="clienteForm">
+<div class="form-grid">
+<div class="form-group"><label>Nome completo</label><input id="clienteNome" required></div>
+<div class="form-group"><label>CPF/CNPJ</label><input id="clienteDocumento"></div>
+<div class="form-group"><label>Telefone</label><input id="clienteTelefone" required></div>
+<div class="form-group"><label>E-mail</label><input id="clienteEmail" type="email"></div>
+<div class="form-group"><label>Placa do veículo</label><input id="veiculoPlaca" required></div>
+<div class="form-group"><label>Marca</label><input id="veiculoMarca" required></div>
+<div class="form-group"><label>Modelo</label><input id="veiculoModelo" required></div>
+<div class="form-group"><label>Ano</label><input id="veiculoAno" type="number"></div>
+<div class="form-group full"><label>Observações</label><textarea id="clienteObs"></textarea></div>
+</div><br>
+<button class="btn btn-primary" type="submit">Cadastrar cliente</button>
+</form>
+</div>
+
+<div class="panel">
+<div class="panel-header"><h2>Clientes cadastrados</h2></div>
+<div class="table-wrapper">
+<table><thead><tr><th>Cliente</th><th>Telefone</th><th>Veículo</th><th>Placa</th><th>Ações</th></tr></thead>
+<tbody id="clientesTable"></tbody></table>
+</div>
+</div>
+</section>
+
+<section id="entrada" class="section">
+<div class="panel">
+<div class="panel-header"><h2>Check-list de entrada</h2></div>
+
+<div class="form-grid">
+<div class="form-group"><label>Cliente</label><select id="entradaCliente" onchange="carregarVeiculo()"><option value="">Selecione</option></select></div>
+<div class="form-group"><label>Veículo</label><input id="entradaVeiculo" readonly></div>
+<div class="form-group"><label>Quilometragem</label><input id="entradaKm" type="number"></div>
+<div class="form-group"><label>Nível de combustível</label><select id="combustivel"><option>Reserva</option><option>1/4</option><option>1/2</option><option>3/4</option><option>Cheio</option></select></div>
+</div>
+
+<br><h3>Itens do veículo</h3><br>
+<div class="checklist">
+<label class="check-item"><input type="checkbox" value="Lataria">Lataria em bom estado</label>
+<label class="check-item"><input type="checkbox" value="Pneus">Pneus em bom estado</label>
+<label class="check-item"><input type="checkbox" value="Faróis">Faróis</label>
+<label class="check-item"><input type="checkbox" value="Lanternas">Lanternas</label>
+<label class="check-item"><input type="checkbox" value="Retrovisores">Retrovisores</label>
+<label class="check-item"><input type="checkbox" value="Vidros">Vidros</label>
+<label class="check-item"><input type="checkbox" value="Estepe">Estepe</label>
+<label class="check-item"><input type="checkbox" value="Macaco">Macaco</label>
+<label class="check-item"><input type="checkbox" value="Triângulo">Triângulo</label>
+<label class="check-item"><input type="checkbox" value="Documentos">Documentos</label>
+</div>
+
+<br>
+<div class="form-group"><label>Observações / avarias encontradas</label><textarea id="entradaObs" placeholder="Descreva riscos, amassados, danos ou outras observações..."></textarea></div>
+<br>
+<label>Fotos do veículo</label><br><br>
+<label class="photo-upload">📷 Clique para anexar fotos<input type="file" id="fotos" accept="image/*" multiple hidden onchange="previewFotos(event)"></label>
+<div id="photoPreview" class="photo-preview"></div>
+<br>
+<button class="btn btn-primary" onclick="salvarEntrada()">Salvar entrada</button>
+</div>
+</section>
+
+<section id="fila" class="section">
+<div class="panel">
+<div class="panel-header"><h2>Fila de espera</h2></div>
+<div class="table-wrapper">
+<table><thead><tr><th>Posição</th><th>Cliente</th><th>Veículo</th><th>Entrada</th><th>Serviço</th><th>Status</th><th>Ação</th></tr></thead>
+<tbody id="filaTable"></tbody></table>
+</div>
+</div>
+</section>
+
+<section id="servicos" class="section">
+<div class="panel">
+<div class="panel-header"><h2>Tipos de serviço</h2></div>
+<form id="servicoForm">
+<div class="form-grid">
+<div class="form-group"><label>Nome do serviço</label><input id="servicoNome" required></div>
+<div class="form-group"><label>Preço estimado</label><input id="servicoPreco" type="number" step="0.01"></div>
+<div class="form-group full"><label>Descrição</label><textarea id="servicoDescricao"></textarea></div>
+</div><br>
+<button class="btn btn-primary">Cadastrar serviço</button>
+</form>
+</div>
+
+<div class="panel">
+<div class="panel-header"><h2>Serviços cadastrados</h2></div>
+<div class="table-wrapper">
+<table><thead><tr><th>Serviço</th><th>Descrição</th><th>Preço estimado</th><th>Ações</th></tr></thead>
+<tbody id="servicosTable"></tbody></table>
+</div>
+</div>
+</section>
+
+<section id="ordens" class="section">
+<div class="panel">
+<div class="panel-header"><h2>Nova Ordem de Serviço</h2></div>
+<form id="osForm">
+<div class="form-grid">
+<div class="form-group"><label>Cliente</label><select id="osCliente" onchange="carregarVeiculoOS()" required><option value="">Selecione</option></select></div>
+<div class="form-group"><label>Veículo</label><input id="osVeiculo" readonly></div>
+<div class="form-group"><label>Tipo de serviço</label><select id="osServico" onchange="preencherValorServico()" required><option value="">Selecione</option></select></div>
+<div class="form-group"><label>Valor</label><input id="osValor" type="number" step="0.01"></div>
+<div class="form-group full"><label>Descrição do serviço</label><textarea id="osDescricao"></textarea></div>
+</div><br>
+<button class="btn btn-primary">Criar Ordem de Serviço</button>
+</form>
+</div>
+
+<div class="panel">
+<div class="panel-header"><h2>Ordens de Serviço</h2></div>
+<div id="osLista"></div>
+</div>
+</section>
+
+</div>
+</main>
+
+<div class="modal" id="modal">
+<div class="modal-content">
+<div class="modal-header"><h2>Ordem de Serviço</h2><button class="close" onclick="fecharModal()">×</button></div>
+<div id="modalOS"></div><br>
+<button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir OS</button>
+<button class="btn btn-success" onclick="enviarOS()">📤 Enviar OS</button>
+</div>
+</div>
+
+<script>
+let clientes=JSON.parse(localStorage.getItem("clientes"))||[];
+let entradas=JSON.parse(localStorage.getItem("entradas"))||[];
+let servicos=JSON.parse(localStorage.getItem("servicos"))||[];
+let ordens=JSON.parse(localStorage.getItem("ordens"))||[];
+let fotosTemporarias=[];
+let osAtual=null;
+
+const save=()=>localStorage.setItem("clientes",JSON.stringify(clientes))||
+localStorage.setItem("entradas",JSON.stringify(entradas));
+
+function salvarDados(){
+localStorage.setItem("clientes",JSON.stringify(clientes));
+localStorage.setItem("entradas",JSON.stringify(entradas));
+localStorage.setItem("servicos",JSON.stringify(servicos));
+localStorage.setItem("ordens",JSON.stringify(ordens));
+}
+
+function esc(v){
+return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+
+function showSection(id,button){
+document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+document.getElementById(id).classList.add("active");
+document.querySelectorAll(".menu button").forEach(b=>b.classList.remove("active"));
+button.classList.add("active");
+const titles={dashboard:"Dashboard",clientes:"Clientes",entrada:"Entrada do veículo",fila:"Fila de espera",servicos:"Tipos de serviço",ordens:"Ordens de Serviço"};
+document.getElementById("pageTitle").textContent=titles[id];
+atualizarTudo();
+}
+
+document.getElementById("clienteForm").addEventListener("submit",e=>{
+e.preventDefault();
+clientes.push({
+id:Date.now(),
+nome:document.getElementById("clienteNome").value.trim(),
+documento:document.getElementById("clienteDocumento").value.trim(),
+telefone:document.getElementById("clienteTelefone").value.trim(),
+email:document.getElementById("clienteEmail").value.trim(),
+veiculo:{
+placa:document.getElementById("veiculoPlaca").value.trim().toUpperCase(),
+marca:document.getElementById("veiculoMarca").value.trim(),
+modelo:document.getElementById("veiculoModelo").value.trim(),
+ano:document.getElementById("veiculoAno").value
+},
+observacoes:document.getElementById("clienteObs").value.trim()
+});
+salvarDados();e.target.reset();alert("Cliente cadastrado com sucesso!");atualizarTudo();
+});
+
+function excluirCliente(id){
+if(!confirm("Deseja realmente excluir este cliente?"))return;
+clientes=clientes.filter(c=>c.id!==id);
+salvarDados();atualizarTudo();
+}
+
+function carregarClientesSelect(){
+["entradaCliente","osCliente"].forEach(id=>{
+const select=document.getElementById(id),atual=select.value;
+select.innerHTML='<option value="">Selecione</option>';
+clientes.forEach(c=>{
+const o=document.createElement("option");
+o.value=c.id;o.textContent=`${c.nome} - ${c.veiculo.placa}`;
+select.appendChild(o);
+});
+if([...select.options].some(o=>o.value===atual))select.value=atual;
+});
+}
+
+function carregarVeiculo(){
+const c=clientes.find(c=>c.id===Number(document.getElementById("entradaCliente").value));
+document.getElementById("entradaVeiculo").value=c?`${c.veiculo.marca} ${c.veiculo.modelo} - ${c.veiculo.placa}`:"";
+}
+
+function carregarVeiculoOS(){
+const c=clientes.find(c=>c.id===Number(document.getElementById("osCliente").value));
+document.getElementById("osVeiculo").value=c?`${c.veiculo.marca} ${c.veiculo.modelo} - ${c.veiculo.placa}`:"";
+}
+
+function previewFotos(e){
+fotosTemporarias=[];
+const preview=document.getElementById("photoPreview");
+preview.innerHTML="";
+[...e.target.files].forEach(file=>{
+const reader=new FileReader();
+reader.onload=x=>{
+fotosTemporarias.push(x.target.result);
+const div=document.createElement("div");
+div.className="photo-item";
+div.innerHTML=`<img src="${x.target.result}" alt="Foto do veículo">`;
+preview.appendChild(div);
+};
+reader.readAsDataURL(file);
+});
+}
+
+function salvarEntrada(){
+const clienteId=Number(document.getElementById("entradaCliente").value);
+if(!clienteId)return alert("Selecione um cliente.");
+const cliente=clientes.find(c=>c.id===clienteId);
+const itens=[...document.querySelectorAll(".checklist input:checked")].map(i=>i.value);
+entradas.push({
+id:Date.now(),clienteId,cliente:cliente.nome,
+veiculo:`${cliente.veiculo.marca} ${cliente.veiculo.modelo}`,
+placa:cliente.veiculo.placa,
+km:document.getElementById("entradaKm").value,
+combustivel:document.getElementById("combustivel").value,
+checklist:itens,observacoes:document.getElementById("entradaObs").value,
+fotos:fotosTemporarias,servico:"Aguardando avaliação",
+status:"Aguardando",data:new Date().toLocaleString("pt-BR")
+});
+salvarDados();
+document.getElementById("entradaKm").value="";
+document.getElementById("entradaObs").value="";
+document.getElementById("fotos").value="";
+document.querySelectorAll(".checklist input").forEach(i=>i.checked=false);
+document.getElementById("photoPreview").innerHTML="";
+fotosTemporarias=[];
+alert("Entrada registrada e veículo adicionado à fila!");
+atualizarTudo();
+}
+
+function alterarStatus(id){
+const e=entradas.find(e=>e.id===id);if(!e)return;
+const statuses=["Aguardando","Em avaliação","Em serviço","Pronto","Entregue"];
+e.status=statuses[(statuses.indexOf(e.status)+1)%statuses.length];
+salvarDados();atualizarTudo();
+}
+
+function statusClass(s){
+return {"Aguardando":"status-waiting","Em avaliação":"status-analysis","Em serviço":"status-service","Pronto":"status-ready","Entregue":"status-delivered"}[s]||"status-delivered";
+}
+
+document.getElementById("servicoForm").addEventListener("submit",e=>{
+e.preventDefault();
+servicos.push({
+id:Date.now(),
+nome:document.getElementById("servicoNome").value.trim(),
+preco:document.getElementById("servicoPreco").value,
+descricao:document.getElementById("servicoDescricao").value.trim()
+});
+salvarDados();e.target.reset();atualizarTudo();alert("Serviço cadastrado!");
+});
+
+function carregarServicosSelect(){
+const select=document.getElementById("osServico"),atual=select.value;
+select.innerHTML='<option value="">Selecione</option>';
+servicos.forEach(s=>{
+const o=document.createElement("option");
+o.value=s.id;o.textContent=s.nome;select.appendChild(o);
+});
+if([...select.options].some(o=>o.value===atual))select.value=atual;
+}
+
+function preencherValorServico(){
+const s=servicos.find(s=>s.id===Number(document.getElementById("osServico").value));
+if(s)document.getElementById("osValor").value=s.preco||"";
+}
+
+document.getElementById("osForm").addEventListener("submit",e=>{
+e.preventDefault();
+const cliente=clientes.find(c=>c.id===Number(document.getElementById("osCliente").value));
+const servico=servicos.find(s=>s.id===Number(document.getElementById("osServico").value));
+if(!cliente||!servico)return alert("Selecione cliente e serviço.");
+const numero="OS-"+String(ordens.length+1).padStart(5,"0");
+ordens.push({
+id:Date.now(),numero,clienteId:cliente.id,cliente:cliente.nome,
+telefone:cliente.telefone,veiculo:`${cliente.veiculo.marca} ${cliente.veiculo.modelo}`,
+placa:cliente.veiculo.placa,servico:servico.nome,
+valor:document.getElementById("osValor").value||servico.preco,
+descricao:document.getElementById("osDescricao").value,
+status:"Aberta",data:new Date().toLocaleString("pt-BR")
+});
+salvarDados();e.target.reset();document.getElementById("osVeiculo").value="";
+atualizarTudo();alert(`OS ${numero} criada com sucesso!`);
+});
+
+function visualizarOS(id){
+osAtual=ordens.find(o=>o.id===id);if(!osAtual)return;
+const o=osAtual;
+document.getElementById("modalOS").innerHTML=`
+<div class="os-box">
+<div class="os-header">
+<div><div class="card-label">Ordem de Serviço</div><div class="os-number">${esc(o.numero)}</div></div>
+<span class="status ${o.status==="Fechada"?"status-delivered":"status-analysis"}">${esc(o.status)}</span>
+</div>
+<p><strong>Cliente:</strong> ${esc(o.cliente)}</p><br>
+<p><strong>Telefone:</strong> ${esc(o.telefone)}</p><br>
+<p><strong>Veículo:</strong> ${esc(o.veiculo)}</p><br>
+<p><strong>Placa:</strong> ${esc(o.placa)}</p><br>
+<p><strong>Serviço:</strong> ${esc(o.servico)}</p><br>
+<p><strong>Descrição:</strong> ${esc(o.descricao)||"-"}</p><br>
+<p><strong>Valor:</strong> R$ ${Number(o.valor||0).toLocaleString("pt-BR",{minimumFractionDigits:2})}</p><br>
+<p><strong>Data:</strong> ${esc(o.data)}</p>
+${o.dataFechamento?`<br><p><strong>Fechada em:</strong> ${esc(o.dataFechamento)}</p>`:""}
+</div>`;
+document.getElementById("modal").classList.add("show");
+}
+
+function fecharModal(){document.getElementById("modal").classList.remove("show")}
+
+function enviarOS(){
+if(!osAtual)return;
+const o=osAtual;
+const mensagem=`Olá, ${o.cliente}!
+
+Sua Ordem de Serviço foi registrada.
+
+OS: ${o.numero}
+Veículo: ${o.veiculo}
+Placa: ${o.placa}
+Serviço: ${o.servico}
+Valor estimado: R$ ${Number(o.valor||0).toFixed(2)}
+
+Obrigado pela preferência!`;
+const telefone=o.telefone.replace(/\D/g,"");
+if(!telefone)return alert("O cliente não possui telefone válido.");
+window.open(`https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`,"_blank");
+}
+
+function renderClientes(){
+const tbody=document.getElementById("clientesTable");
+tbody.innerHTML=clientes.length?clientes.map(c=>`
+<tr>
+<td>${esc(c.nome)}</td><td>${esc(c.telefone)}</td>
+<td>${esc(c.veiculo.marca)} ${esc(c.veiculo.modelo)}</td>
+<td>${esc(c.veiculo.placa)}</td>
+<td><button class="btn btn-danger" onclick="excluirCliente(${c.id})">Excluir</button></td>
+</tr>`).join(""):`<tr><td colspan="5" class="empty">Nenhum cliente cadastrado.</td></tr>`;
+}
+
+/* =========================================================
+   NOVA FUNCIONALIDADE: EXCLUIR CLIENTE DA FILA
+========================================================= */
+
+function excluirFila(id){
+const entrada=entradas.find(e=>e.id===id);
+
+if(!entrada)return;
+
+if(!confirm(`Deseja remover ${entrada.cliente} da fila de espera?`))return;
+
+entradas=entradas.filter(e=>e.id!==id);
+
+salvarDados();
+atualizarTudo();
+
+alert("Cliente removido da fila de espera com sucesso!");
+}
+
+function renderFila(){
+const tbody=document.getElementById("filaTable");
+tbody.innerHTML=entradas.length?entradas.map((e,i)=>`
+<tr>
+<td>${i+1}</td><td>${esc(e.cliente)}</td>
+<td>${esc(e.veiculo)}<br><small>${esc(e.placa)}</small></td>
+<td>${esc(e.data)}</td><td>${esc(e.servico)}</td>
+<td><span class="status ${statusClass(e.status)}">${esc(e.status)}</span></td>
+<td>
+<div class="actions">
+<button class="btn btn-secondary" onclick="alterarStatus(${e.id})">Próximo status</button>
+<button class="btn btn-danger" onclick="excluirFila(${e.id})">Excluir</button>
+</div>
+</td>
+</tr>`).join(""):`<tr><td colspan="7" class="empty">Nenhum veículo na fila.</td></tr>`;
+}
+
+function excluirServico(id){
+if(!confirm("Deseja excluir este serviço?"))return;
+servicos=servicos.filter(s=>s.id!==id);
+salvarDados();atualizarTudo();
+}
+
+function renderServicos(){
+const tbody=document.getElementById("servicosTable");
+tbody.innerHTML=servicos.length?servicos.map(s=>`
+<tr>
+<td>${esc(s.nome)}</td><td>${esc(s.descricao)||"-"}</td>
+<td>R$ ${Number(s.preco||0).toLocaleString("pt-BR",{minimumFractionDigits:2})}</td>
+<td><button class="btn btn-danger" onclick="excluirServico(${s.id})">Excluir</button></td>
+</tr>`).join(""):`<tr><td colspan="4" class="empty">Nenhum serviço cadastrado.</td></tr>`;
+}
+
+function excluirOS(id){
+if(!confirm("Deseja excluir esta OS?"))return;
+ordens=ordens.filter(o=>o.id!==id);
+salvarDados();atualizarTudo();
+}
+
+/* =========================================================
+   FUNCIONALIDADE: FECHAR OS
+========================================================= */
+
+function fecharOS(id){
+const os=ordens.find(o=>o.id===id);
+
+if(!os)return;
+
+if(os.status==="Fechada"){
+alert("Esta OS já está fechada.");
+return;
+}
+
+if(!confirm(`Deseja fechar a OS ${os.numero}?`))return;
+
+os.status="Fechada";
+os.dataFechamento=new Date().toLocaleString("pt-BR");
+
+salvarDados();
+atualizarTudo();
+
+alert(`OS ${os.numero} fechada com sucesso!`);
+}
+
+function renderOS(){
+const container=document.getElementById("osLista");
+
+if(!ordens.length){
+container.innerHTML='<div class="empty">Nenhuma Ordem de Serviço criada.</div>';
+return;
+}
+
+container.innerHTML=ordens.map(o=>`
+<div class="os-box" style="margin-bottom:15px">
+<div class="os-header">
+<div>
+<div class="card-label">Ordem de Serviço</div>
+<div class="os-number">${esc(o.numero)}</div>
+</div>
+
+<span class="status ${o.status==="Fechada"?"status-delivered":"status-analysis"}">
+${esc(o.status)}
+</span>
+
+</div>
+
+<p><strong>Cliente:</strong> ${esc(o.cliente)}</p>
+<p><strong>Veículo:</strong> ${esc(o.veiculo)} - ${esc(o.placa)}</p>
+<p><strong>Serviço:</strong> ${esc(o.servico)}</p>
+<p><strong>Valor:</strong> R$ ${Number(o.valor||0).toLocaleString("pt-BR",{minimumFractionDigits:2})}</p>
+
+${o.dataFechamento?`
+<p><strong>Fechada em:</strong> ${esc(o.dataFechamento)}</p>
+`:""}
+
+<br>
+
+<div class="actions">
+
+<button class="btn btn-primary" onclick="visualizarOS(${o.id})">
+Visualizar
+</button>
+
+<button class="btn btn-success" onclick="visualizarOS(${o.id});setTimeout(enviarOS,100)">
+Enviar
+</button>
+
+${o.status!=="Fechada"?`
+<button class="btn btn-warning" onclick="fecharOS(${o.id})">
+Fechar OS
+</button>
+`:""}
+
+<button class="btn btn-danger" onclick="excluirOS(${o.id})">
+Excluir
+</button>
+
+</div>
+</div>
+`).join("");
+}
+
+function renderDashboard(){
+document.getElementById("totalClientes").textContent=clientes.length;
+document.getElementById("totalFila").textContent=entradas.filter(e=>e.status!=="Entregue").length;
+document.getElementById("totalAtendimento").textContent=entradas.filter(e=>e.status==="Em avaliação"||e.status==="Em serviço").length;
+document.getElementById("totalOS").textContent=ordens.filter(o=>o.status==="Aberta").length;
+const rows=entradas.filter(e=>e.status==="Em avaliação"||e.status==="Em serviço"||e.status==="Pronto");
+document.getElementById("dashboardTable").innerHTML=rows.length?rows.map(e=>{
+const os=ordens.find(o=>o.clienteId===e.clienteId);
+return `<tr><td>${os?esc(os.numero):"-"}</td><td>${esc(e.cliente)}</td><td>${esc(e.veiculo)} - ${esc(e.placa)}</td><td>${os?esc(os.servico):esc(e.servico)}</td><td><span class="status ${statusClass(e.status)}">${esc(e.status)}</span></td></tr>`;
+}).join(""):`<tr><td colspan="5" class="empty">Nenhum veículo em atendimento.</td></tr>`;
+}
+
+function atualizarTudo(){
+carregarClientesSelect();
+carregarServicosSelect();
+renderClientes();
+renderFila();
+renderServicos();
+renderOS();
+renderDashboard();
+}
+
+atualizarTudo();
+</script>
+
+</body>
+</html>
